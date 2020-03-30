@@ -8,3 +8,5 @@ mongo:
 serve:
 	cd slides
 	python -m http.server
+timer:
+	termdown 25m

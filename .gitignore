@@ -63,6 +63,7 @@ instance/
 
 # Sphinx documentation
 docs/_build/
+docs/flow-images
 
 # PyBuilder
 target/
@@ -99,4 +100,7 @@ ENV/
 
 # mypy
 .mypy_cache/
+.idea/
+.orig
+
 *.orig

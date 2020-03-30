@@ -1,53 +1,70 @@
+# flake8: NOQA
+# pylint: disable=unused-import
+import uuid
 from collections import Counter
-from bson.objectid import ObjectId
+from typing import List, NamedTuple, Optional
+
 from pymongo import MongoClient
+
+from mongobasket.aggregate import Aggregate, applies
+from mongobasket.events import Event, BasketCreated, ItemAdded, ItemRemoved
+
+from .util import print_basket
 
 client = MongoClient()
 db = client.basket_db
 
 
-class Basket:
+class Basket(Aggregate):
+    def __init__(self, events: Optional[List] = None):
+        self.id = uuid.uuid4()
+        # the line below overrides the need to use @applies decorator
+        # because it's simples to understand
+        # TODO: debug and explain EventRegistry
+        self._handlers = {
+            BasketCreated: Basket.on_created,
+            ItemAdded: Basket.on_added,
+            ItemRemoved: Basket.on_remove,
+        }
+        super().__init__(events)
 
-    def __init__(self, basket_id=None, items=None):
-        self.__values = Counter(items)
-        self.id = basket_id
-
-    def add_item(self, product, qty=1):
-        self.__values[product] += qty
-
-    def remove(self, product):
-        if not product in self.__values:
-            raise KeyError(product)
-        del self.__values[product]
-
-    def __getitem__(self, product):
-        return self.__values[product]
-
-    def is_empty(self):
-        return not any(self.__values)
-
-    def save(self):
-        data = dict(self.__values)
-
-        if not self.id:
-            _id = ObjectId()
-            data['_id'] = _id
-            db.baskets.insert_one(data)
-            self.id = _id
-
-        else:
-            data['_id'] = self.id
-            db.baskets.update({"_id": self.id}, data)
-
+    # Deciders: raise events (send commands)
     @classmethod
-    def get(cls, basket_id):
-        _id = ObjectId(basket_id)
-        data = db.baskets.find_one(_id)
-        del data ['_id']
-        return cls(basket_id=_id, items=data)
+    def create(cls, basket_id: uuid.UUID) -> Basket:
+        """Factory basket 'static' method"""
+        basket = Basket()
+        basket.raise_event(BasketCreated(basket_id))
+        return basket
 
-    def __str__(self):
-        return "\n".join((
-            f"{product} = {qty}"
-            for product, qty in self.__values.items()
-        ))
+    def add_item(self, product: str, qty: int = 1) -> None:
+        self.raise_event(ItemAdded(self.id, product, qty))
+
+    def remove(self, product: str) -> None:
+        if product not in self.items:
+            raise KeyError
+        self.raise_event(ItemRemoved(self.id, product))
+
+    # Appliers aka handlers
+    # @applies(events.BasketCreated)
+    def on_created(self, event: BasketCreated) -> None:
+        self.id = event.basket_id
+        self.items: Counter = Counter()
+
+    def on_added(self, event: ItemAdded) -> None:
+        self.items[event.product] += event.qty
+
+    def on_remove(self, event: ItemRemoved) -> None:
+        del self.items[event.product]
+
+    # View methods
+
+    def get_item(self, product: str) -> int:
+        return self.items[product]
+
+    def is_empty(self) -> bool:
+        return not any(self.items)
+
+    def __str__(self) -> str:
+        return print_basket(self)
+
+    # Data Access

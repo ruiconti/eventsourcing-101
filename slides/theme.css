@@ -25,7 +25,8 @@ text-align: left;
 }
 
 .question h1, .question h2 {
-   max-width: 70%;
+font-size: 5em;
+max-width: 70%;
 }
 
 .question strong {
@@ -46,10 +47,8 @@ text-align: left;
 
 .definition { text-align: justify; margin-top: 20%; font-size: 2em;}
 .definition span { display: block; }
-.footnote { position: absolute; bottom: 12px; text-align: left; }
 
-.feedback { text-align: center; vertical-align: middle; }
-.feedback img { max-height: 50%; max-width: 50%;}
-
+.fullscreen-image {
+}
 
 a { color: #ABAA98; }
